@@ -7,8 +7,6 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import Image from "next/image";
-import logo from "@/public/logo.png";
 
 import {
   Card,
@@ -59,35 +57,27 @@ export function Chat() {
 
   return (
     <MessageScrollerProvider>
-      <Card
-        className="
-        flex
-        h-[90dvh]
-        w-full
-        flex-col
-        "
-      >
-        <CardHeader className="border-b shrink-0">
-          <CardTitle className="flex items-center gap-2">
-            <Image 
-              src={logo} 
-              alt="Logo" 
-              width={50} 
-              height={50} 
-              style={{ width: 'auto', height: 'auto' }} 
-              priority 
-            />{" "}
-            <p>Ella AI assistant</p>
-          </CardTitle>
-        </CardHeader>
+     <Card
+  className="
+  flex
+  h-[90dvh]
+  w-full
+  flex-col
+  border-none
+  shadow-none
+  "
+>
 
-        <CardContent
-          className="
-          flex-1
-          overflow-y-auto 
-          md:px-30
-          "
-        >
+       <CardContent
+         className="
+         flex-1
+         overflow-y-auto 
+         w-full
+         md:max-w-[70%]
+         md:mx-auto
+         md:px-30
+         "
+      >
           {messages.length === 0 ? (
             <Empty className="h-full">
               <EmptyHeader>

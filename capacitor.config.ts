@@ -2,7 +2,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
   appId: "com.ella.app",
-  appName: "ella",
+  appName: "Ella",
   webDir: "out",
   server: {
     androidScheme: "https",
