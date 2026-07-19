@@ -4,6 +4,10 @@ const config: CapacitorConfig = {
   appId: "com.ella.app",
   appName: "ella",
   webDir: "out",
+  server: {
+    androidScheme: "https",
+    hostname: "ella-mobile.app",
+  }
 };
 
 export default config;
