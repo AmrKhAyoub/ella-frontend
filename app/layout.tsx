@@ -1,8 +1,12 @@
+// app/layout.tsx
 import { TooltipProvider } from "@/components/ui/tooltip"; 
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+
+// Import your new setup component
+import { CapacitorSetup } from "@/components/CapacitorSetup"; 
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -33,6 +37,9 @@ export default function RootLayout({
       )}
     >
       <body className="min-h-full">
+        {/* Mount the client-side Capacitor logic here */}
+        <CapacitorSetup /> 
+        
         {/* The TooltipProvider wraps the whole app, but the Sidebar is gone! */}
         <TooltipProvider>
           {children}

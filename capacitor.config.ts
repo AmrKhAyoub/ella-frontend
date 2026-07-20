@@ -7,7 +7,16 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: "https",
     hostname: "ella-mobile.app",
-  }
+  },
+  plugins: {
+    SplashScreen: {
+      launchShowDuration: 0, 
+      backgroundColor: "#ffffff",
+      showSpinner: true,
+      androidSpinnerStyle: "large",
+      spinnerColor: "#000000", 
+    },
+  },
 };
 
 export default config;
