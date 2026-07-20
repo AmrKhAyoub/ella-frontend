@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { BellIcon, CheckCircle2Icon, CheckIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Capacitor } from "@capacitor/core";
+import { LocalNotifications } from "@capacitor/local-notifications";
 
 interface Notification {
     id: number;
@@ -17,6 +19,19 @@ export default function NotificationsList() {
     const [unreadCount, setUnreadCount] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+
+    // 1. Request Native Notification Permissions on mount
+    useEffect(() => {
+        const requestPermissions = async () => {
+            if (Capacitor.isNativePlatform()) {
+                const permStatus = await LocalNotifications.checkPermissions();
+                if (permStatus.display !== 'granted') {
+                    await LocalNotifications.requestPermissions();
+                }
+            }
+        };
+        requestPermissions();
+    }, []);
 
     useEffect(() => {
         const fetchNotifications = async () => {
@@ -43,6 +58,35 @@ export default function NotificationsList() {
                 const data = await response.json();
                 setNotifications(data.notifications);
                 setUnreadCount(data.unread_count);
+
+                // 2. Trigger Native Notification for the newest unread message
+                if (data.notifications.length > 0) {
+                    const latestNotif = data.notifications[0]; // Assuming [0] is the newest
+                    const lastNotifiedId = localStorage.getItem("lastNotifiedId");
+
+                    // Check if it's unread AND we haven't already notified the user about it
+                    if (!latestNotif.is_read && latestNotif.id.toString() !== lastNotifiedId) {
+                        
+                        if (Capacitor.isNativePlatform()) {
+                            await LocalNotifications.schedule({
+                                notifications: [
+                                    {
+                                        title: latestNotif.title,
+                                        body: latestNotif.message,
+                                        id: latestNotif.id,
+                                        schedule: { at: new Date(Date.now() + 1000) }, // Show in 1 second
+                                        actionTypeId: "",
+                                        extra: null,
+                                    },
+                                ],
+                            });
+                        }
+                        
+                        // Save the ID so we don't trigger it again on the next fetch
+                        localStorage.setItem("lastNotifiedId", latestNotif.id.toString());
+                    }
+                }
+
             } catch (err: any) {
                 setError(err.message);
             } finally {
@@ -50,12 +94,16 @@ export default function NotificationsList() {
             }
         };
 
+        // You might want to run this fetch on an interval (e.g., every 30 seconds) 
+        // to catch new notifications while the app is open.
         fetchNotifications();
+        const intervalId = setInterval(fetchNotifications, 30000); 
+
+        return () => clearInterval(intervalId); // Cleanup on unmount
     }, []);
 
-    // 1. New function to handle marking notifications as read
     const markAllAsRead = async () => {
-        if (unreadCount === 0) return; // Prevent unnecessary API calls
+        if (unreadCount === 0) return; 
 
         const token = localStorage.getItem("accessToken");
         if (!token) return;
@@ -63,7 +111,6 @@ export default function NotificationsList() {
         try {
             const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
             
-            // Assuming your Django endpoint expects a POST request
             const response = await fetch(`${baseUrl}/api/notifications/mark-read/`, {
                 method: "POST", 
                 headers: {
@@ -73,7 +120,6 @@ export default function NotificationsList() {
             });
 
             if (response.ok) {
-                // 2. Optimistically update the UI so it feels instant
                 setUnreadCount(0);
                 setNotifications((prev) => 
                     prev.map((notif) => ({ ...notif, is_read: true }))
@@ -107,7 +153,6 @@ export default function NotificationsList() {
                     You have <strong className="text-primary">{unreadCount}</strong> unread message(s)
                 </span>
                 
-                {/* 3. The button that triggers the function */}
                 {unreadCount > 0 && (
                     <Button 
                         variant="ghost" 

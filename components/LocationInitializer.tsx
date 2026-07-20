@@ -59,7 +59,7 @@ export async function StartBackgroundTracking() {
 
 async function sendLocationToBackend(location: Location | null | undefined) {
   try {
-    await fetch("http://127.0.0.1:8000/api/update-location/", {
+    await fetch("https://ella-v1.onrender.com/api/update-location/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
