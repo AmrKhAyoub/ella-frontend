@@ -1,12 +1,12 @@
 // app/main/assessment/page.tsx
-"use client"
+"use client";
 
-import React, { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { fetchAssessmentAPI } from "@/lib/api" 
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { fetchAssessmentAPI } from "@/lib/api";
 
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Field,
   FieldDescription,
@@ -15,8 +15,8 @@ import {
   FieldLegend,
   FieldSeparator,
   FieldSet,
-} from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -24,8 +24,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 // --- TYPE DEFINITIONS ---
 interface Question {
@@ -49,7 +49,7 @@ interface SessionData {
     status: string;
     current_step: number;
     draft_data: Record<string, any>;
-  }
+  };
 }
 
 interface SaveStepResponse {
@@ -60,14 +60,15 @@ interface SaveStepResponse {
 type FormDataState = Record<string, Record<string, any>>;
 
 export default function AssessmentPage() {
-  const router = useRouter(); 
+  const router = useRouter();
 
   // --- STATE MANAGEMENT ---
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [formData, setFormData] = useState<FormDataState>({});
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [questions, setQuestions] = useState<Question[]>([]); 
-  const [assessmentResult, setAssessmentResult] = useState<AssessmentResult | null>(null);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [assessmentResult, setAssessmentResult] =
+    useState<AssessmentResult | null>(null);
   const [isAlreadyCompleted, setIsAlreadyCompleted] = useState<boolean>(false); // 👈 Track if session is already done
 
   // --- API INITIALIZATION ---
@@ -76,7 +77,7 @@ export default function AssessmentPage() {
       try {
         setIsLoading(true);
         const data = await fetchAssessmentAPI<SessionData>("/session/");
-        
+
         if (data.session) {
           setFormData(data.session.draft_data || {});
           setCurrentStep(data.session.current_step || 1);
@@ -115,7 +116,11 @@ export default function AssessmentPage() {
   }, [currentStep, questions.length]);
 
   // --- HANDLERS ---
-  const handleInputChange = (step: number, field: string | number, value: any) => {
+  const handleInputChange = (
+    step: number,
+    field: string | number,
+    value: any,
+  ) => {
     setFormData((prev) => ({
       ...prev,
       [`step_${step}`]: {
@@ -130,14 +135,17 @@ export default function AssessmentPage() {
     try {
       setIsLoading(true);
       const stepData = formData[`step_${currentStep}`] || {};
-      
-      const response = await fetchAssessmentAPI<SaveStepResponse>("/save-step/", {
-        method: "POST",
-        body: JSON.stringify({
-          step_number: currentStep,
-          step_data: stepData,
-        }),
-      });
+
+      const response = await fetchAssessmentAPI<SaveStepResponse>(
+        "/save-step/",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            step_number: currentStep,
+            step_data: stepData,
+          }),
+        },
+      );
 
       setCurrentStep(response.current_step);
     } catch (error) {
@@ -151,15 +159,17 @@ export default function AssessmentPage() {
     setCurrentStep((prev) => Math.max(1, prev - 1));
   };
 
-  const handleSubmitAssessment = async (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleSubmitAssessment = async (
+    e: React.MouseEvent<HTMLButtonElement>,
+  ) => {
     e.preventDefault();
     try {
       setIsLoading(true);
       const result = await fetchAssessmentAPI<AssessmentResult>("/submit/", {
         method: "POST",
-        body: JSON.stringify({}), 
+        body: JSON.stringify({}),
       });
-      
+
       setAssessmentResult(result);
     } catch (error: any) {
       alert(error.message || "Submission failed.");
@@ -177,11 +187,17 @@ export default function AssessmentPage() {
     return (
       <div className="w-full min-h-[85vh] flex items-center justify-center p-4">
         <div className="w-full max-w-md p-8 border rounded-lg shadow-sm text-center bg-white">
-          <h2 className="text-2xl font-bold mb-4 text-emerald-600">Assessment Finished!</h2>
+          <h2 className="text-2xl font-bold mb-4 text-emerald-600">
+            Assessment Finished!
+          </h2>
           <p className="text-gray-600 mb-6">
-            You have already completed this academic assessment. Your profile and answers are saved.
+            You have already completed this academic assessment. Your profile
+            and answers are saved.
           </p>
-          <Button className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => router.push("/main/chat")}>
+          <Button
+            className="w-full bg-blue-600 hover:bg-blue-700"
+            onClick={() => router.push("/main/chat")}
+          >
             Go to Chat
           </Button>
         </div>
@@ -196,8 +212,12 @@ export default function AssessmentPage() {
         <div className="w-full max-w-md p-8 border rounded-lg shadow-sm text-center bg-white">
           <h2 className="text-2xl font-bold mb-4">Assessment Complete!</h2>
           <p className="text-gray-600 mb-2">Your final score is:</p>
-          <p className="text-5xl font-extrabold text-blue-600 mb-4">{assessmentResult.final_score}/10</p>
-          <p className="text-lg font-semibold mb-8">Level: {assessmentResult.level}</p>
+          <p className="text-5xl font-extrabold text-blue-600 mb-4">
+            {assessmentResult.final_score}/10
+          </p>
+          <p className="text-lg font-semibold mb-8">
+            Level: {assessmentResult.level}
+          </p>
           <Button className="w-full" onClick={() => router.push("/main/chat")}>
             Go to Chat
           </Button>
@@ -223,9 +243,11 @@ export default function AssessmentPage() {
           <span className="font-medium">Step {currentStep} of 7</span>
           <div className="flex gap-1">
             {Array.from({ length: 7 }).map((_, i) => (
-              <div 
-                key={i} 
-                className={`h-2 w-8 rounded-full ${i + 1 <= currentStep ? 'bg-blue-600' : 'bg-gray-200'}`} 
+              <div
+                key={i}
+                className={`h-2 w-8 rounded-full ${
+                  i + 1 <= currentStep ? "bg-blue-600" : "bg-gray-200"
+                }`}
               />
             ))}
           </div>
@@ -233,7 +255,6 @@ export default function AssessmentPage() {
 
         <form>
           <FieldGroup>
-            
             {/* STEP 1: Basic Info */}
             {currentStep === 1 && (
               <FieldSet>
@@ -245,15 +266,19 @@ export default function AssessmentPage() {
                     <Input
                       id="name"
                       value={getValue(1, "name")}
-                      onChange={(e) => handleInputChange(1, "name", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange(1, "name", e.target.value)
+                      }
                       placeholder="Leo"
                     />
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="age">Age Group</FieldLabel>
-                    <Select 
-                      value={getValue(1, "age_group")} 
-                      onValueChange={(val) => handleInputChange(1, "age_group", val)}
+                    <Select
+                      value={getValue(1, "age_group")}
+                      onValueChange={(val) =>
+                        handleInputChange(1, "age_group", val)
+                      }
                     >
                       <SelectTrigger id="age">
                         <SelectValue placeholder="Select age range" />
@@ -273,7 +298,9 @@ export default function AssessmentPage() {
                     <Input
                       id="language"
                       value={getValue(1, "native_language")}
-                      onChange={(e) => handleInputChange(1, "native_language", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange(1, "native_language", e.target.value)
+                      }
                       placeholder="e.g. Spanish"
                     />
                   </Field>
@@ -285,15 +312,24 @@ export default function AssessmentPage() {
             {currentStep === 2 && (
               <FieldSet>
                 <FieldLegend>Self Assessment</FieldLegend>
-                <FieldDescription>Rate your current abilities out of 10.</FieldDescription>
+                <FieldDescription>
+                  Rate your current abilities out of 10.
+                </FieldDescription>
                 <FieldGroup>
                   <Field>
                     <FieldLabel>Overall Rating</FieldLabel>
                     <Input
                       type="number"
-                      min="1" max="10"
+                      min="1"
+                      max="10"
                       value={getValue(2, "overall_rating")}
-                      onChange={(e) => handleInputChange(2, "overall_rating", parseInt(e.target.value) || "")}
+                      onChange={(e) =>
+                        handleInputChange(
+                          2,
+                          "overall_rating",
+                          parseInt(e.target.value) || "",
+                        )
+                      }
                       placeholder="e.g. 6"
                     />
                   </Field>
@@ -301,9 +337,16 @@ export default function AssessmentPage() {
                     <FieldLabel>Reading Skill</FieldLabel>
                     <Input
                       type="number"
-                      min="1" max="10"
+                      min="1"
+                      max="10"
                       value={getValue(2, "reading_skill")}
-                      onChange={(e) => handleInputChange(2, "reading_skill", parseInt(e.target.value) || "")}
+                      onChange={(e) =>
+                        handleInputChange(
+                          2,
+                          "reading_skill",
+                          parseInt(e.target.value) || "",
+                        )
+                      }
                       placeholder="e.g. 7"
                     />
                   </Field>
@@ -312,17 +355,21 @@ export default function AssessmentPage() {
             )}
 
             {/* STEPS 3-5: Placeholder examples */}
-            {(currentStep >= 3 && currentStep <= 5) && (
+            {currentStep >= 3 && currentStep <= 5 && (
               <FieldSet>
                 <FieldLegend>Step {currentStep}: Additional Info</FieldLegend>
-                <FieldDescription>Tell us a bit more about your goals.</FieldDescription>
+                <FieldDescription>
+                  Tell us a bit more about your goals.
+                </FieldDescription>
                 <FieldGroup>
                   <Field>
                     <FieldLabel>Brief description</FieldLabel>
-                    <Textarea 
+                    <Textarea
                       value={getValue(currentStep, "notes")}
-                      onChange={(e) => handleInputChange(currentStep, "notes", e.target.value)}
-                      placeholder="Write here..." 
+                      onChange={(e) =>
+                        handleInputChange(currentStep, "notes", e.target.value)
+                      }
+                      placeholder="Write here..."
                       className="resize-none"
                     />
                   </Field>
@@ -334,17 +381,26 @@ export default function AssessmentPage() {
             {currentStep === 6 && (
               <FieldSet>
                 <FieldLegend>Academic Assessment</FieldLegend>
-                <FieldDescription>Select the best answer for each question.</FieldDescription>
+                <FieldDescription>
+                  Select the best answer for each question.
+                </FieldDescription>
                 <FieldGroup>
                   {isLoading && questions.length === 0 ? (
-                    <p className="text-sm text-gray-500">Loading questions...</p>
+                    <p className="text-sm text-gray-500">
+                      Loading questions...
+                    </p>
                   ) : (
                     questions.map((q) => (
                       <Field key={q.id}>
-                        <FieldLabel className="text-base font-medium">{q.question}</FieldLabel>
+                        <FieldLabel className="text-base font-medium">
+                          {q.question}
+                        </FieldLabel>
                         <div className="flex flex-col gap-2 mt-2 ml-2">
                           {q.options.map((opt, idx) => (
-                            <label key={idx} className="flex items-center gap-3 text-sm cursor-pointer">
+                            <label
+                              key={idx}
+                              className="flex items-center gap-3 text-sm cursor-pointer"
+                            >
                               <input
                                 type="radio"
                                 name={`question_${q.id}`}
@@ -368,13 +424,17 @@ export default function AssessmentPage() {
             {currentStep === 7 && (
               <FieldSet>
                 <FieldLegend>Ready to Submit</FieldLegend>
-                <FieldDescription>You have completed all questions.</FieldDescription>
+                <FieldDescription>
+                  You have completed all questions.
+                </FieldDescription>
                 <FieldGroup>
                   <Field orientation="horizontal">
-                    <Checkbox 
-                      id="confirm" 
+                    <Checkbox
+                      id="confirm"
                       checked={getValue(7, "confirmed") === true}
-                      onCheckedChange={(checked) => handleInputChange(7, "confirmed", checked)}
+                      onCheckedChange={(checked) =>
+                        handleInputChange(7, "confirmed", checked)
+                      }
                     />
                     <FieldLabel htmlFor="confirm" className="font-normal">
                       I confirm my answers are ready for grading.
@@ -387,29 +447,36 @@ export default function AssessmentPage() {
             {/* --- NAVIGATION BUTTONS --- */}
             <FieldSeparator />
             <Field orientation="horizontal" className="justify-between pt-4">
-              <Button 
-                variant="outline" 
-                type="button" 
+              <Button
+                variant="outline"
+                type="button"
                 onClick={handleBackClick}
                 disabled={currentStep === 1 || isLoading}
               >
                 Back
               </Button>
-              
+
               {currentStep < 7 ? (
-                <Button type="button" onClick={handleNextClick} disabled={isLoading}>
+                <Button
+                  type="button"
+                  onClick={handleNextClick}
+                  disabled={isLoading}
+                >
                   {isLoading ? "Saving..." : "Next Step"}
                 </Button>
               ) : (
-                <Button type="button" onClick={handleSubmitAssessment} disabled={isLoading || !getValue(7, "confirmed")}>
+                <Button
+                  type="button"
+                  onClick={handleSubmitAssessment}
+                  disabled={isLoading || !getValue(7, "confirmed")}
+                >
                   {isLoading ? "Grading..." : "Submit Test"}
                 </Button>
               )}
             </Field>
-
           </FieldGroup>
         </form>
       </div>
     </div>
-  )
+  );
 }

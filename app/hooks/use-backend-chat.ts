@@ -9,7 +9,7 @@ export interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
-  parts: MessagePart[]; 
+  parts: MessagePart[];
   createdAt?: Date;
 }
 
@@ -17,7 +17,9 @@ export function useBackendChat() {
   const [sessions, setSessions] = useState<any[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [status, setStatus] = useState<"ready" | "submitted" | "streaming" | "error">("ready");
+  const [status, setStatus] = useState<
+    "ready" | "submitted" | "streaming" | "error"
+  >("ready");
 
   // Dynamically fetches the accessToken from localStorage for every request
   const getHeaders = useCallback(() => {
@@ -28,7 +30,7 @@ export function useBackendChat() {
     if (typeof window !== "undefined") {
       const token = localStorage.getItem("accessToken");
       if (token) {
-        // Note: If your Django configuration uses standard TokenAuth instead of JWT, 
+        // Note: If your Django configuration uses standard TokenAuth instead of JWT,
         // you might need to change "Bearer" to "Token" below.
         headers["Authorization"] = `Bearer ${token}`;
       }
@@ -39,9 +41,12 @@ export function useBackendChat() {
 
   const fetchSessions = useCallback(async () => {
     try {
-      const res = await fetch("https://ella-v1.onrender.com/api/chats/sessions/", {
-        headers: getHeaders(),
-      });
+      const res = await fetch(
+        "https://ella-v1.onrender.com/api/chats/sessions/",
+        {
+          headers: getHeaders(),
+        },
+      );
       if (!res.ok) throw new Error("Failed to fetch sessions");
       const data = await res.json();
       setSessions(data);
@@ -52,40 +57,43 @@ export function useBackendChat() {
     }
   }, [getHeaders]);
 
-  const fetchSessionMessages = useCallback(async (sessionId: string) => {
-    try {
-      setStatus("submitted");
-      const res = await fetch(`https://ella-v1.onrender.com/api/chats/sessions/${sessionId}/messages/`, {
-        headers: getHeaders(),
-      });
-      if (!res.ok) throw new Error("Failed to fetch messages");
-      const data = await res.json();
-      
-      const mappedMessages: Message[] = data.map((msg: any) => ({
-        id: msg.id.toString(),
-        role: msg.sender === "user" ? "user" : "assistant",
-        content: msg.content_text,
-        parts: [{ type: "text", text: msg.content_text }], 
-        createdAt: new Date(msg.timestamp),
-      }));
-      
-      setMessages(mappedMessages);
-      setStatus("ready");
-    } catch (err) {
-      console.error("Error fetching messages:", err);
-      setStatus("error");
-    }
-  }, [getHeaders]);
+  const fetchSessionMessages = useCallback(
+    async (sessionId: string) => {
+      try {
+        setStatus("submitted");
+        const res = await fetch(
+          `https://ella-v1.onrender.com/api/chats/sessions/${sessionId}/messages/`,
+          {
+            headers: getHeaders(),
+          },
+        );
+        if (!res.ok) throw new Error("Failed to fetch messages");
+        const data = await res.json();
 
-  useEffect(() => {
-    fetchSessions().then((loadedSessions) => {
-      if (loadedSessions && loadedSessions.length > 0) {
-        const latestSession = loadedSessions[loadedSessions.length - 1];
-        setCurrentSessionId(latestSession.id);
-        fetchSessionMessages(latestSession.id);
+        const mappedMessages: Message[] = data.map((msg: any) => ({
+          id: msg.id.toString(),
+          role: msg.sender === "user" ? "user" : "assistant",
+          content: msg.content_text,
+          parts: [{ type: "text", text: msg.content_text }],
+          createdAt: new Date(msg.timestamp),
+        }));
+
+        setMessages(mappedMessages);
+        setStatus("ready");
+      } catch (err) {
+        console.error("Error fetching messages:", err);
+        setStatus("error");
       }
-    });
-  }, [fetchSessions, fetchSessionMessages]);
+    },
+    [getHeaders],
+  );
+
+  // --- CHANGED: Only fetch the list of sessions on mount ---
+  // We no longer auto-load the latest session's messages here.
+  // The Chat component handles that based on the URL query parameter.
+  useEffect(() => {
+    fetchSessions();
+  }, [fetchSessions]);
 
   const sendMessage = async (options: { text: string }) => {
     const text = options.text;
@@ -97,7 +105,7 @@ export function useBackendChat() {
       id: `temp-user-${Date.now()}`,
       role: "user",
       content: text,
-      parts: [{ type: "text", text: text }], 
+      parts: [{ type: "text", text: text }],
       createdAt: new Date(),
     };
     setMessages((prev) => [...prev, tempUserMsg]);
@@ -105,27 +113,35 @@ export function useBackendChat() {
     try {
       let sessionId = currentSessionId;
 
+      // Create a new session if one doesn't exist
       if (!sessionId) {
         const topic = text.length > 30 ? `${text.substring(0, 30)}...` : text;
-        const createRes = await fetch("https://ella-v1.onrender.com/api/chats/sessions/", {
-          method: "POST",
-          headers: getHeaders(),
-          body: JSON.stringify({ topic }),
-        });
+        const createRes = await fetch(
+          "https://ella-v1.onrender.com/api/chats/sessions/",
+          {
+            method: "POST",
+            headers: getHeaders(),
+            body: JSON.stringify({ topic }),
+          },
+        );
 
         if (!createRes.ok) throw new Error("Failed to create session");
         const newSession = await createRes.json();
         sessionId = newSession.id;
         setCurrentSessionId(sessionId);
-        
+
+        // Refresh the sidebar list to include the newly created session
         fetchSessions();
       }
 
-      const sendRes = await fetch(`https://ella-v1.onrender.com/api/chats/sessions/${sessionId}/send/`, {
-        method: "POST",
-        headers: getHeaders(),
-        body: JSON.stringify({ content_text: text }),
-      });
+      const sendRes = await fetch(
+        `https://ella-v1.onrender.com/api/chats/sessions/${sessionId}/send/`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify({ content_text: text }),
+        },
+      );
 
       if (!sendRes.ok) throw new Error("Failed to send message");
       const data = await sendRes.json();
