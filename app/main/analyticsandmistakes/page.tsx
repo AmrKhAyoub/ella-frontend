@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import {
   Bar,
   BarChart,
@@ -44,7 +44,8 @@ const categoryConfig = {
   PUNCTUATION: { label: "Punctuation", color: "#d97706" },
 } satisfies ChartConfig;
 
-export default function AnalyticsPage() {
+// 1. Rename your original component logic to a child component
+function AnalyticsContent() {
   const [mistakes, setMistakes] = useState<Mistake[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -67,13 +68,12 @@ export default function AnalyticsPage() {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
-          },
+          }
         );
 
         if (!response.ok) throw new Error("Failed to load analytics data.");
 
         const data = await response.json();
-        // Handle if response is wrapped in an object or a direct array
         const mistakesList = Array.isArray(data) ? data : data.mistakes || [];
         setMistakes(mistakesList);
       } catch (err: any) {
@@ -99,14 +99,13 @@ export default function AnalyticsPage() {
     return <div className="p-6 text-sm text-red-500">{error}</div>;
   }
 
-  // --- Process Data for Category Chart ---
   const categoryCounts = mistakes.reduce(
     (acc: Record<string, number>, curr) => {
       const cat = curr.category || "GRAMMAR";
       acc[cat] = (acc[cat] || 0) + 1;
       return acc;
     },
-    {},
+    {}
   );
 
   const categoryChartData = Object.keys(categoryConfig).map((key) => ({
@@ -115,7 +114,6 @@ export default function AnalyticsPage() {
     fill: categoryConfig[key as keyof typeof categoryConfig].color,
   }));
 
-  // --- Process Data for Timeline Chart ---
   const timelineCounts = mistakes.reduce(
     (acc: Record<string, number>, curr) => {
       const dateStr = new Date(curr.created_at).toLocaleDateString("en-US", {
@@ -125,7 +123,7 @@ export default function AnalyticsPage() {
       acc[dateStr] = (acc[dateStr] || 0) + 1;
       return acc;
     },
-    {},
+    {}
   );
 
   const timelineChartData = Object.keys(timelineCounts).map((date) => ({
@@ -145,9 +143,7 @@ export default function AnalyticsPage() {
         </p>
       </div>
 
-      {/* Charts Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Category Breakdown Chart */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base font-semibold">
@@ -185,7 +181,6 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
 
-        {/* Timeline Progress Chart */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base font-semibold">
@@ -230,7 +225,6 @@ export default function AnalyticsPage() {
         </Card>
       </div>
 
-      {/* List / Print All Mistakes Section */}
       <div className="flex flex-col gap-4">
         <h2 className="text-xl font-semibold tracking-tight">
           Recorded Mistakes Log
@@ -308,5 +302,21 @@ export default function AnalyticsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// 2. Export a wrapper component that renders the content inside <Suspense>
+export default function AnalyticsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-[50vh] w-full items-center justify-center gap-2 text-sm text-muted-foreground animate-pulse">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          Loading analytics...
+        </div>
+      }
+    >
+      <AnalyticsContent />
+    </Suspense>
   );
 }

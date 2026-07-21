@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react"; // <-- IMPORT Suspense
 import Link from "next/link";
-import { useSearchParams } from "next/navigation"; // <-- Added to track active URL
+import { useSearchParams } from "next/navigation";
 
 import { NavMain } from "@/components/nav-main";
 import { NavProjects } from "@/components/nav-projects";
@@ -50,7 +50,6 @@ const data = {
   ],
   navMain: [
     {
-      // Clicking this triggers a blank slate "New Chat"
       title: "New Chat",
       url: "/main/chat",
       icon: <MessageCircleCheckIcon />,
@@ -102,8 +101,8 @@ interface ChatSession {
   created_at: string;
 }
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  // --- ADDED: Track active session from URL ---
+// 1. Rename your original AppSidebar to AppSidebarContent
+function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const searchParams = useSearchParams();
   const currentSessionId = searchParams.get("session");
 
@@ -124,7 +123,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(true);
 
-  // --- REUSABLE fetchSessions function ---
   const fetchSessions = async () => {
     const accessToken = localStorage.getItem("accessToken");
     if (!accessToken) return;
@@ -179,7 +177,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     fetchProfile();
     fetchSessions();
 
-    // --- ADDED: Listen for the custom event to refresh sessions instantly ---
     const handleRefreshSessions = () => {
       fetchSessions();
     };
@@ -249,7 +246,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             ) : (
               <SidebarMenu>
                 {sessions.map((session) => {
-                  // --- ADDED: Check if this session is the active one ---
                   const isActive = currentSessionId === String(session.id);
 
                   return (
@@ -257,7 +253,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       key={session.id}
                       className="group relative"
                     >
-                      {/* --- ADDED: Pass isActive prop to Shadcn's SidebarMenuButton --- */}
                       <SidebarMenuButton
                         asChild
                         isActive={isActive}
@@ -323,5 +318,22 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
       <SidebarRail />
     </Sidebar>
+  );
+}
+
+// 2. Export a wrapper component that renders the content inside <Suspense>
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  return (
+    <Suspense
+      fallback={
+        <Sidebar collapsible="icon" {...props} className="flex flex-col h-full">
+          <div className="flex h-full items-center justify-center p-4">
+            <Loader2Icon className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        </Sidebar>
+      }
+    >
+      <AppSidebarContent {...props} />
+    </Suspense>
   );
 }
