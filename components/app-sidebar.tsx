@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useEffect, useState, Suspense } from "react"; // <-- IMPORT Suspense
+import { useEffect, useState, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
@@ -11,6 +11,8 @@ import { NavUser } from "@/components/nav-user";
 import { TeamSwitcher } from "@/components/team-switcher";
 import { useUpdateLocation } from "@/app/hooks/useUpdateLocation";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import {
   Sidebar,
   SidebarContent,
@@ -19,6 +21,7 @@ import {
   SidebarRail,
   SidebarGroup,
   SidebarGroupLabel,
+  SidebarGroupContent,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
@@ -36,6 +39,8 @@ import {
   Trash2Icon,
   Loader2Icon,
   TicketsIcon,
+  SearchIcon,
+  MapPinIcon,
 } from "lucide-react";
 
 const API_BASE_URL = "https://ella-v1.onrender.com";
@@ -101,7 +106,46 @@ interface ChatSession {
   created_at: string;
 }
 
-// 1. Rename your original AppSidebar to AppSidebarContent
+// Helper: Group sessions into ChatGPT / Claude style relative time categories
+function groupSessionsByTime(sessions: ChatSession[]) {
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterdayStart = new Date(todayStart);
+  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+
+  const last7DaysStart = new Date(todayStart);
+  last7DaysStart.setDate(last7DaysStart.getDate() - 7);
+
+  const last30DaysStart = new Date(todayStart);
+  last30DaysStart.setDate(last30DaysStart.getDate() - 30);
+
+  const groups: { label: string; items: ChatSession[] }[] = [
+    { label: "Today", items: [] },
+    { label: "Yesterday", items: [] },
+    { label: "Previous 7 Days", items: [] },
+    { label: "Previous 30 Days", items: [] },
+    { label: "Older", items: [] },
+  ];
+
+  sessions.forEach((session) => {
+    const sessionDate = new Date(session.created_at || Date.now());
+
+    if (sessionDate >= todayStart) {
+      groups[0].items.push(session);
+    } else if (sessionDate >= yesterdayStart) {
+      groups[1].items.push(session);
+    } else if (sessionDate >= last7DaysStart) {
+      groups[2].items.push(session);
+    } else if (sessionDate >= last30DaysStart) {
+      groups[3].items.push(session);
+    } else {
+      groups[4].items.push(session);
+    }
+  });
+
+  return groups.filter((g) => g.items.length > 0);
+}
+
 function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const searchParams = useSearchParams();
   const currentSessionId = searchParams.get("session");
@@ -122,10 +166,15 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showLocationTools, setShowLocationTools] = useState(false);
 
   const fetchSessions = async () => {
     const accessToken = localStorage.getItem("accessToken");
-    if (!accessToken) return;
+    if (!accessToken) {
+      setLoadingSessions(false);
+      return;
+    }
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/chats/sessions/`, {
@@ -177,9 +226,7 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
     fetchProfile();
     fetchSessions();
 
-    const handleRefreshSessions = () => {
-      fetchSessions();
-    };
+    const handleRefreshSessions = () => fetchSessions();
     window.addEventListener("refresh-sessions", handleRefreshSessions);
 
     return () => {
@@ -187,23 +234,24 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
     };
   }, []);
 
-  const handleDeleteSession = async (sessionId: string) => {
+  const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
     const accessToken = localStorage.getItem("accessToken");
     if (!accessToken) return;
 
+    // Optimistic UI update
     const previousSessions = [...sessions];
     setSessions((prev) => prev.filter((s) => s.id !== sessionId));
 
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/chats/sessions/${sessionId}/`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+      const res = await fetch(`${API_BASE_URL}/api/chats/sessions/${sessionId}/`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
         },
-      );
+      });
 
       if (!res.ok) {
         throw new Error("Failed to delete session");
@@ -211,108 +259,168 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
     } catch (error) {
       console.error(error);
       setSessions(previousSessions);
-      alert("Failed to delete the chat. Please try again.");
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  };
+  // Filtered and grouped sessions
+  const filteredSessions = useMemo(() => {
+    if (!searchQuery.trim()) return sessions;
+    return sessions.filter((s) =>
+      (s.topic || "New Conversation").toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [sessions, searchQuery]);
+
+  const groupedSessions = useMemo(() => {
+    return groupSessionsByTime(filteredSessions);
+  }, [filteredSessions]);
 
   return (
-    <Sidebar collapsible="icon" {...props} className="flex flex-col h-full">
+    <Sidebar collapsible="icon" {...props} className="flex flex-col h-full border-r">
       <SidebarHeader>
         <TeamSwitcher teams={data.teams} />
       </SidebarHeader>
 
-      <SidebarContent className="flex-1 overflow-hidden flex flex-col">
-        <div className="overflow-y-auto">
-          <NavMain items={data.navMain} />
-          <NavProjects projects={data.Game} />
+      <SidebarContent className="flex-1 overflow-y-auto px-1 space-y-2">
+        <NavMain items={data.navMain} />
+        <NavProjects projects={data.Game} />
 
-          <SidebarGroup className="mt-4">
-            <SidebarGroupLabel>Recent Chats</SidebarGroupLabel>
+        {/* RECENT CHATS SECTION */}
+        <SidebarGroup className="mt-2">
+          <div className="flex items-center justify-between px-2 mb-2">
+            <SidebarGroupLabel className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+              Recent Chats
+            </SidebarGroupLabel>
+          </div>
 
-            {loadingSessions ? (
-              <div className="flex items-center justify-center py-4 text-gray-500">
-                <Loader2Icon className="h-4 w-4 animate-spin mr-2" />
-                <span className="text-xs">Loading sessions...</span>
-              </div>
-            ) : sessions.length === 0 ? (
-              <div className="text-xs text-gray-400 px-4 py-2">
-                No recent chats found.
-              </div>
-            ) : (
-              <SidebarMenu>
-                {sessions.map((session) => {
-                  const isActive = currentSessionId === String(session.id);
+          {/* Quick Search Filter (Only show if multiple sessions exist) */}
+          {sessions.length > 5 && (
+            <div className="relative px-2 mb-3">
+              <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search history..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-8 pl-8 pr-2 text-xs bg-sidebar-accent/50 border-none focus-visible:ring-1 focus-visible:ring-sidebar-ring rounded-md"
+              />
+            </div>
+          )}
 
-                  return (
-                    <SidebarMenuItem
-                      key={session.id}
-                      className="group relative"
-                    >
-                      <SidebarMenuButton
-                        asChild
-                        isActive={isActive}
-                        className="pr-8 h-auto"
-                      >
-                        <Link
-                          href={`/main/chat?session=${session.id}`}
-                          className="flex flex-col items-start gap-0.5 py-2"
-                        >
-                          <div className="flex items-center w-full gap-2">
-                            <MessageSquareIcon className="h-4 w-4 shrink-0" />
-                            <span className="truncate font-medium text-sm">
-                              {session.topic || "New Conversation"}
-                            </span>
-                          </div>
-                          <span className="text-[10px] text-gray-400 pl-6 w-full truncate">
-                            {formatDate(session.created_at)}
-                          </span>
-                        </Link>
-                      </SidebarMenuButton>
+          {/* LOADING STATE */}
+          {loadingSessions ? (
+            <div className="space-y-2 px-2 py-1">
+              <Skeleton className="h-7 w-full rounded-md" />
+              <Skeleton className="h-7 w-full rounded-md" />
+              <Skeleton className="h-7 w-[80%] rounded-md" />
+            </div>
+          ) : sessions.length === 0 ? (
+            /* EMPTY STATE */
+            <div className="text-center py-6 px-4">
+              <MessageSquareIcon className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+              <p className="text-xs text-muted-foreground font-medium">No recent chats</p>
+              <p className="text-[11px] text-muted-foreground/70 mt-0.5">
+                Start a new conversation above!
+              </p>
+            </div>
+          ) : groupedSessions.length === 0 ? (
+            /* NO SEARCH RESULTS */
+            <div className="text-xs text-muted-foreground px-4 py-3 text-center">
+              No chats matching "{searchQuery}"
+            </div>
+          ) : (
+            /* GROUPED SESSION LIST */
+            <div className="space-y-4">
+              {groupedSessions.map((group) => (
+                <div key={group.label} className="space-y-1">
+                  <div className="px-3 text-[11px] font-medium text-muted-foreground/70">
+                    {group.label}
+                  </div>
+                  <SidebarMenu>
+                    {group.items.map((session) => {
+                      const isActive = currentSessionId === String(session.id);
 
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleDeleteSession(session.id);
-                        }}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-gray-100 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
-                        title="Delete chat"
-                      >
-                        <Trash2Icon className="h-4 w-4" />
-                      </button>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            )}
-          </SidebarGroup>
-        </div>
+                      return (
+                        <SidebarMenuItem key={session.id} className="group relative">
+                          <SidebarMenuButton
+                            asChild
+                            isActive={isActive}
+                            className={`h-8 px-2.5 text-xs rounded-md transition-colors ${
+                              isActive
+                                ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                                : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+                            }`}
+                          >
+                            <Link
+                              href={`/main/chat?session=${session.id}`}
+                              className="flex items-center gap-2.5 w-full pr-6"
+                            >
+                              <MessageSquareIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                              <span className="truncate flex-1">
+                                {session.topic || "New Conversation"}
+                              </span>
+                            </Link>
+                          </SidebarMenuButton>
+
+                          {/* Hover Delete Action Button */}
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteSession(session.id, e)}
+                            className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 rounded transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                            title="Delete chat"
+                          >
+                            <Trash2Icon className="h-3.5 w-3.5" />
+                          </button>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  </SidebarMenu>
+                </div>
+              ))}
+            </div>
+          )}
+        </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
+      {/* FOOTER SECTION */}
+      <SidebarFooter className="border-t border-sidebar-border pt-2 space-y-2">
         <NavUser user={userProfile} />
 
-        <div className="p-2 flex flex-col gap-2">
-          <Button
-            onClick={updateLocation}
-            disabled={isUpdating || isSimulating}
-            variant="outline"
-            className="w-full"
+        {/* Collapsible/Compact Location Debugging Tools */}
+        <div className="px-2 pb-2">
+          <button
+            type="button"
+            onClick={() => setShowLocationTools(!showLocationTools)}
+            className="flex items-center justify-between w-full text-[11px] text-muted-foreground hover:text-foreground py-1 px-2 rounded hover:bg-sidebar-accent/50 transition-colors"
           >
-            {isUpdating && !isSimulating ? "Updating..." : "Update Location"}
-          </Button>
+            <span className="flex items-center gap-1.5">
+              <MapPinIcon className="h-3 w-3" />
+              Location Settings
+            </span>
+            <span className="text-[10px]">{showLocationTools ? "Hide" : "Show"}</span>
+          </button>
 
-          <Button
-            onClick={isSimulating ? stopSimulation : startSimulation}
-            variant={isSimulating ? "destructive" : "secondary"}
-            className="w-full"
-          >
-            {isSimulating ? "Stop Simulation" : "Simulate Location (30s)"}
-          </Button>
+          {showLocationTools && (
+            <div className="mt-2 space-y-1.5 pt-1 border-t border-sidebar-border/50">
+              <Button
+                onClick={updateLocation}
+                disabled={isUpdating || isSimulating}
+                variant="outline"
+                size="sm"
+                className="w-full h-7 text-xs justify-center"
+              >
+                {isUpdating && !isSimulating ? "Updating..." : "Update Location"}
+              </Button>
+
+              <Button
+                onClick={isSimulating ? stopSimulation : startSimulation}
+                variant={isSimulating ? "destructive" : "secondary"}
+                size="sm"
+                className="w-full h-7 text-xs justify-center"
+              >
+                {isSimulating ? "Stop Simulation" : "Simulate Location (30s)"}
+              </Button>
+            </div>
+          )}
         </div>
       </SidebarFooter>
 
@@ -321,12 +429,11 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
   );
 }
 
-// 2. Export a wrapper component that renders the content inside <Suspense>
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Suspense
       fallback={
-        <Sidebar collapsible="icon" {...props} className="flex flex-col h-full">
+        <Sidebar collapsible="icon" {...props} className="flex flex-col h-full border-r">
           <div className="flex h-full items-center justify-center p-4">
             <Loader2Icon className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
