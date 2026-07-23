@@ -1,12 +1,22 @@
-import { AlertCircle } from "lucide-react";
+// /main/HunterGame/page.tsx
+"use client";
 
-export default function HunterGame() {
-  return (
-    <div className="flex h-full w-full flex-col items-center justify-center bg-zinc-50 font-sans dark:bg-black px-[20px]">
-      <div className="flex flex-col items-center gap-2">
-        <AlertCircle className="size-10 text-muted-foreground" />
-        <p className="text-muted-foreground">No Game data yet</p>
-      </div>
+import dynamic from "next/dynamic";
+
+const MapComponent = dynamic(() => import("@/components/MapImplementation"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[600px] w-full rounded-2xl bg-muted/30 animate-pulse flex items-center justify-center border shadow-xl">
+      <div className="text-sm text-muted-foreground font-medium">Loading Map Engine...</div>
     </div>
+  ),
+});
+
+export default function HunterGamePage() {
+  return (
+    <main className="p-6">
+      <h1 className="mb-4 text-2xl font-bold tracking-tight">Hunter Game Dashboard</h1>
+      <MapComponent />
+    </main>
   );
 }

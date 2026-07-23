@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -110,7 +111,7 @@ export function NavUser({
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className="rounded-lg">
+                  <AvatarFallback className="rounded-lg bg-blue-600 text-white font-medium text-xs">
                     {getInitials(user.name)}
                   </AvatarFallback>
                 </Avatar>
@@ -123,24 +124,18 @@ export function NavUser({
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem className="cursor-pointer">
-                <SparklesIcon />
+                <SparklesIcon className="text-blue-600" />
                 Upgrade to Pro
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem className="cursor-pointer">
-                <BadgeCheckIcon />
-                Account
-              </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer">
-                <CreditCardIcon />
-                Billing
-              </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer">
-                <BellIcon />
-                Notifications
-              </DropdownMenuItem>
+             <Link href="/main/accountSettings" className="flex items-center gap-2 w-full">
+    <BadgeCheckIcon className="text-blue-600 h-4 w-4" />
+    <span>Account Settings</span>
+  </Link>
+             
+             
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
 

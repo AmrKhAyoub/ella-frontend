@@ -63,17 +63,9 @@ export function NavProjects({
               >
                 <DropdownMenuItem>
                   <FolderIcon />
-                  <span>View Project</span>
+                  <span>Coming soon</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <ArrowRightIcon />
-                  <span>Share Project</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive">
-                  <Trash2Icon />
-                  <span>Delete Project</span>
-                </DropdownMenuItem>
+               
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>

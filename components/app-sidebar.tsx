@@ -21,11 +21,19 @@ import {
   SidebarRail,
   SidebarGroup,
   SidebarGroupLabel,
-  SidebarGroupContent,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuAction,
+  useSidebar,
 } from "@/components/ui/sidebar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   GalleryVerticalEndIcon,
   BotIcon,
@@ -41,6 +49,10 @@ import {
   TicketsIcon,
   SearchIcon,
   MapPinIcon,
+  MoreHorizontalIcon,
+  PencilIcon,
+  CheckIcon,
+  XIcon,
 } from "lucide-react";
 
 const API_BASE_URL = "https://ella-v1.onrender.com";
@@ -149,6 +161,7 @@ function groupSessionsByTime(sessions: ChatSession[]) {
 function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const searchParams = useSearchParams();
   const currentSessionId = searchParams.get("session");
+  const { isMobile } = useSidebar();
 
   const {
     updateLocation,
@@ -168,6 +181,11 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [showLocationTools, setShowLocationTools] = useState(false);
+
+  // Inline Editing State
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editTopicValue, setEditTopicValue] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const fetchSessions = async () => {
     const accessToken = localStorage.getItem("accessToken");
@@ -234,10 +252,7 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
     };
   }, []);
 
-  const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
+  const handleDeleteSession = async (sessionId: string) => {
     const accessToken = localStorage.getItem("accessToken");
     if (!accessToken) return;
 
@@ -258,7 +273,49 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
       }
     } catch (error) {
       console.error(error);
-      setSessions(previousSessions);
+      setSessions(previousSessions); // Revert on failure
+    }
+  };
+
+  const handleStartRename = (session: ChatSession) => {
+    setEditingSessionId(session.id);
+    setEditTopicValue(session.topic || "New Conversation");
+  };
+
+  const handleSaveRename = async (sessionId: string) => {
+    if (!editTopicValue.trim()) {
+      setEditingSessionId(null);
+      return;
+    }
+
+    setIsSavingEdit(true);
+    const accessToken = localStorage.getItem("accessToken");
+
+    // Optimistic UI update
+    const previousSessions = [...sessions];
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.id === sessionId ? { ...s, topic: editTopicValue } : s
+      )
+    );
+    setEditingSessionId(null); // Close input immediately for snappy UX
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/chats/sessions/${sessionId}/`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ topic: editTopicValue }),
+      });
+
+      if (!res.ok) throw new Error("Failed to rename session");
+    } catch (error) {
+      console.error(error);
+      setSessions(previousSessions); // Revert on failure
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -292,7 +349,7 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </SidebarGroupLabel>
           </div>
 
-          {/* Quick Search Filter (Only show if multiple sessions exist) */}
+          {/* Quick Search Filter */}
           {sessions.length > 5 && (
             <div className="relative px-2 mb-3">
               <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -318,9 +375,6 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <div className="text-center py-6 px-4">
               <MessageSquareIcon className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
               <p className="text-xs text-muted-foreground font-medium">No recent chats</p>
-              <p className="text-[11px] text-muted-foreground/70 mt-0.5">
-                Start a new conversation above!
-              </p>
             </div>
           ) : groupedSessions.length === 0 ? (
             /* NO SEARCH RESULTS */
@@ -338,38 +392,96 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <SidebarMenu>
                     {group.items.map((session) => {
                       const isActive = currentSessionId === String(session.id);
+                      const isEditing = editingSessionId === session.id;
 
                       return (
                         <SidebarMenuItem key={session.id} className="group relative">
-                          <SidebarMenuButton
-                            asChild
-                            isActive={isActive}
-                            className={`h-8 px-2.5 text-xs rounded-md transition-colors ${
-                              isActive
-                                ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                                : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
-                            }`}
-                          >
-                            <Link
-                              href={`/main/chat?session=${session.id}`}
-                              className="flex items-center gap-2.5 w-full pr-6"
-                            >
+                          {isEditing ? (
+                            /* INLINE EDIT MODE */
+                            <div className="flex items-center gap-1.5 px-2 h-8 bg-sidebar-accent rounded-md ring-1 ring-sidebar-ring">
                               <MessageSquareIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                              <span className="truncate flex-1">
-                                {session.topic || "New Conversation"}
-                              </span>
-                            </Link>
-                          </SidebarMenuButton>
+                              <Input
+                                value={editTopicValue}
+                                onChange={(e) => setEditTopicValue(e.target.value)}
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") handleSaveRename(session.id);
+                                  if (e.key === "Escape") setEditingSessionId(null);
+                                }}
+                                className="h-6 flex-1 px-1 text-xs bg-transparent border-none focus-visible:ring-0 shadow-none p-0"
+                              />
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                <button
+                                  onClick={() => handleSaveRename(session.id)}
+                                  disabled={isSavingEdit}
+                                  className="p-1 text-muted-foreground hover:text-primary rounded-sm transition-colors"
+                                >
+                                  <CheckIcon className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => setEditingSessionId(null)}
+                                  disabled={isSavingEdit}
+                                  className="p-1 text-muted-foreground hover:text-destructive rounded-sm transition-colors"
+                                >
+                                  <XIcon className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            /* STANDARD LINK MODE */
+                            <>
+                              <SidebarMenuButton
+                                asChild
+                                isActive={isActive}
+                                className={`h-8 px-2.5 text-xs rounded-md transition-colors ${
+                                  isActive
+                                    ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+                                }`}
+                              >
+                                <Link
+                                  href={`/main/chat?session=${session.id}`}
+                                  className="flex items-center gap-2.5 w-full pr-8"
+                                >
+                                  <MessageSquareIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                  <span className="truncate flex-1">
+                                    {session.topic || "New Conversation"}
+                                  </span>
+                                </Link>
+                              </SidebarMenuButton>
 
-                          {/* Hover Delete Action Button */}
-                          <button
-                            type="button"
-                            onClick={(e) => handleDeleteSession(session.id, e)}
-                            className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 rounded transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
-                            title="Delete chat"
-                          >
-                            <Trash2Icon className="h-3.5 w-3.5" />
-                          </button>
+                              {/* THREE DOTS DROPDOWN MENU */}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <SidebarMenuAction
+                                    showOnHover
+                                    className="data-[state=open]:opacity-100 data-[state=open]:bg-sidebar-accent right-1"
+                                  >
+                                    <MoreHorizontalIcon className="h-4 w-4" />
+                                    <span className="sr-only">More</span>
+                                  </SidebarMenuAction>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                  className="w-48 rounded-lg"
+                                  side={isMobile ? "bottom" : "right"}
+                                  align={isMobile ? "end" : "start"}
+                                >
+                                  <DropdownMenuItem onClick={() => handleStartRename(session)}>
+                                    <PencilIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                                    <span>Rename</span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => handleDeleteSession(session.id)}
+                                    className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                  >
+                                    <Trash2Icon className="mr-2 h-4 w-4" />
+                                    <span>Delete Chat</span>
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </>
+                          )}
                         </SidebarMenuItem>
                       );
                     })}
