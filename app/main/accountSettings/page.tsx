@@ -266,7 +266,7 @@ const handleUpdateProfile = async (e: React.FormEvent) => {
           <div className="flex items-center gap-3">
             <Avatar className="h-12 w-12 border">
               <AvatarImage src={profile.avatar || ""} alt={profile.username} />
-              <AvatarFallback className="bg-primary/10 font-medium text-primary">
+              <AvatarFallback className="bg-blue-600 text-white font-medium ">
                 {profile.username.slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
@@ -560,7 +560,7 @@ const handleUpdateProfile = async (e: React.FormEvent) => {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 pb-[20px] md:grid-cols-2 gap-4">
                   {/* New Password */}
                   <div className="space-y-2">
                     <Label htmlFor="new_password">New Password</Label>

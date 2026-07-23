@@ -4,6 +4,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { ThemeProvider } from "next-themes";
+
 
 // Import your new setup component
 import { CapacitorSetup } from "@/components/CapacitorSetup"; 
@@ -31,6 +33,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
+    suppressHydrationWarning
       lang="en"
       className={cn(
         "h-full antialiased",
@@ -40,13 +43,18 @@ export default function RootLayout({
         "font-sans",
       )}
     >
-      <body className="min-h-full">
+      <body className="min-h-full" suppressHydrationWarning>
         {/* Mount the client-side Capacitor logic here */}
         <CapacitorSetup /> 
         
         {/* The TooltipProvider wraps the whole app, but the Sidebar is gone! */}
         <TooltipProvider>
+           <ThemeProvider attribute="class"
+          defaultTheme="light"        
+          enableSystem={false}       
+          enableColorScheme={false}>
           {children}
+          </ThemeProvider>
         </TooltipProvider>
       </body>
     </html>
